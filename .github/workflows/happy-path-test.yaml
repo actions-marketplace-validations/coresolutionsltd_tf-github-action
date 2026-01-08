@@ -1,4 +1,4 @@
-name: Test TF Action
+name: Tofu Happy Path Tests
 
 on:
   pull_request:
@@ -8,13 +8,13 @@ on:
 
 permissions:
   id-token: write
+  actions: write
   contents: read
   pull-requests: write
 
 jobs:
-  # Test valid Terraform configurations (happy path)
-  test-valid-configs:
-    name: Test Valid Configurations
+  valid-configs:
+    name: Happy Path (${{ matrix.test-case.name }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -31,12 +31,12 @@ jobs:
           - name: "With inline tfvars (comma-separated)"
             workdir: "test/valid"
             tfvars: "env=test,region=us-east-1"
-            env: "comma-seperated-inline-tfvars"
+            env: "comma-separated-inline-tfvars"
 
           - name: "With inline tfvars (space-separated)"
             workdir: "test/valid"
             tfvars: "env=staging region=us-west-2"
-            env: "space-seperated-inline-tfvars"
+            env: "space-separated-inline-tfvars"
 
           - name: "With multiline tfvars"
             workdir: "test/valid"
@@ -54,7 +54,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Test TF Action - ${{ matrix.test-case.name }}
+      - name: Run Tofu Action - ${{ matrix.test-case.name }}
         id: tf-action-valid-test
         uses: ./
         with:
@@ -64,6 +64,7 @@ jobs:
           backend-config-vars: ${{ matrix.test-case.backend-config-vars }}
           env: ${{ matrix.test-case.env }}
           steps: validate,plan,apply
+          comment-mode: off
 
       - name: Verify action succeeded
         run: |
@@ -72,36 +73,4 @@ jobs:
             exit 1
           else
             echo "✅ Test passed: ${{ matrix.test-case.name }}"
-          fi
-
-  # Test invalid Terraform configurations (failure scenarios)
-  test-invalid-configs:
-    name: Test Invalid Configurations
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        test-case:
-          - name: "Invalid syntax"
-            workdir: "test/invalid"
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Test TF Action - ${{ matrix.test-case.name }}
-        id: tf-action-invalid-test
-        continue-on-error: true
-        uses: ./
-        with:
-          workdir: ${{ matrix.test-case.workdir }}
-          steps: validate
-
-      - name: Verify action failed as expected
-        run: |
-          if [ "${{ steps.test-tf-action-invalid-test.outcome }}" == "success" ]; then
-            echo "❌ Test failed: Expected failure but action succeeded for ${{ matrix.test-case.name }}"
-            exit 1
-          else
-            echo "✅ Test passed: Action correctly failed for ${{ matrix.test-case.name }}"
           fi
